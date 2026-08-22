@@ -1,5 +1,6 @@
 import javax.swing.*;
 import java.awt.*;
+import java.sql.SQLException;
 
 /**
  * Primera pantalla de la aplicación: login del cajero.
@@ -72,12 +73,13 @@ public class VentanaLogin extends JFrame {
         }
     }
 
-    private Usuario buscarUsuarioPorNombre(String nombreUsuario) {
-        for (Usuario u : Sistema.getUsuarios()) {
-            if (u.getUsuario().equals(nombreUsuario)) {
-                return u;
-            }
-        }
+private Usuario buscarUsuarioPorNombre(String nombreUsuario) {
+    try {
+        return UsuarioDAO.buscarPorUsuario(nombreUsuario);
+    } catch (SQLException e) {
+        JOptionPane.showMessageDialog(this, "Error de conexion con la base de datos: " + e.getMessage(),
+                "Error", JOptionPane.ERROR_MESSAGE);
         return null;
     }
+}
 }

@@ -2,6 +2,8 @@ import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.util.List;
+import java.sql.SQLException;
+import java.util.ArrayList;
 
 /**
  * Pantalla de gestión de productos y combos (historia 2).
@@ -11,6 +13,7 @@ import java.util.List;
  */
 public class VentanaGestionProductos extends JFrame {
 
+    private List<ItemMenu> itemsCargados = new ArrayList<>();
     private DefaultTableModel modeloTabla;
     private JTable tabla;
     private static int siguienteIdProducto = 100; // IDs simples para esta pantalla
@@ -39,18 +42,21 @@ public class VentanaGestionProductos extends JFrame {
 
         // Panel de botones superior (Agregar Producto / Agregar Combo / Eliminar)
         JPanel panelBotonesArriba = new JPanel();
-        JButton btnAgregarProducto = new JButton("Agregar Producto");
-        JButton btnAgregarCombo = new JButton("Agregar Combo");
-        JButton btnEliminar = new JButton("Eliminar");
-        panelBotonesArriba.add(btnAgregarProducto);
-        panelBotonesArriba.add(btnAgregarCombo);
-        panelBotonesArriba.add(btnEliminar);
-        add(panelBotonesArriba, BorderLayout.SOUTH);
+JButton btnAgregarProducto = new JButton("Agregar Producto");
+JButton btnAgregarCombo = new JButton("Agregar Combo");
+JButton btnEliminar = new JButton("Eliminar");
+panelBotonesArriba.add(btnAgregarProducto);
+panelBotonesArriba.add(btnAgregarCombo);
+panelBotonesArriba.add(btnEliminar);
 
-        JButton btnVolver = new JButton("Volver");
-        JPanel panelVolver = new JPanel();
-        panelVolver.add(btnVolver);
-        add(panelVolver, BorderLayout.PAGE_END);
+JButton btnVolver = new JButton("Volver");
+JPanel panelVolver = new JPanel();
+panelVolver.add(btnVolver);
+
+JPanel panelInferior = new JPanel(new GridLayout(2, 1));
+panelInferior.add(panelBotonesArriba);
+panelInferior.add(panelVolver);
+add(panelInferior, BorderLayout.SOUTH);
 
         btnAgregarProducto.addActionListener(e -> agregarProducto());
         btnAgregarCombo.addActionListener(e -> agregarCombo());
@@ -66,15 +72,21 @@ public class VentanaGestionProductos extends JFrame {
      * no importa si es Producto o Combo, el código para leerlos es el mismo.
      */
     private void cargarTabla() {
-        modeloTabla.setRowCount(0); // borra todas las filas
-
-        for (Producto p : Sistema.getProductos()) {
+    modeloTabla.setRowCount(0);
+    itemsCargados.clear();
+    try {
+        for (Producto p : ItemMenuDAO.listarProductos()) {
             modeloTabla.addRow(new Object[]{p.getNombre(), p.getPrecio(), p.getCategoria(), "Producto"});
+            itemsCargados.add(p);
         }
-        for (Combo c : Sistema.getCombos()) {
+        for (Combo c : ItemMenuDAO.listarCombos()) {
             modeloTabla.addRow(new Object[]{c.getNombre(), c.getPrecio(), "Combo", "Combo"});
+            itemsCargados.add(c);
         }
+    } catch (SQLException ex) {
+        JOptionPane.showMessageDialog(this, "Error cargando datos: " + ex.getMessage());
     }
+}
 
     private void agregarProducto() {
         try {
@@ -86,11 +98,11 @@ public class VentanaGestionProductos extends JFrame {
             double precio = Double.parseDouble(precioTexto);
             String categoria = JOptionPane.showInputDialog(this, "Categoria:");
 
-            Producto nuevo = new Producto(siguienteIdProducto++, nombre, descripcion, precio, categoria);
-            Sistema.getProductos().add(nuevo);
+            Producto nuevo = new Producto(0, nombre, descripcion, precio, categoria);
+ItemMenuDAO.insertarProducto(nuevo);
             cargarTabla();
 
-        } catch (NumberFormatException ex) {
+        } catch (NumberFormatException | SQLException ex) {
             JOptionPane.showMessageDialog(this, "El precio debe ser un numero valido.",
                     "Error", JOptionPane.ERROR_MESSAGE);
         }
@@ -105,7 +117,7 @@ public class VentanaGestionProductos extends JFrame {
             String precioTexto = JOptionPane.showInputDialog(this, "Precio del combo:");
             double precio = Double.parseDouble(precioTexto);
 
-            List<Producto> disponibles = Sistema.getProductos();
+            List<Producto> disponibles = ItemMenuDAO.listarProductos();
             if (disponibles.isEmpty()) {
                 JOptionPane.showMessageDialog(this, "Primero agregá al menos un producto.");
                 return;
@@ -120,34 +132,33 @@ public class VentanaGestionProductos extends JFrame {
 
             if (resultado != JOptionPane.OK_OPTION) return;
 
-            Combo nuevoCombo = new Combo(siguienteIdCombo++, nombre, descripcion, precio);
+            Combo nuevoCombo = new Combo(0, nombre, descripcion, precio);
             for (Producto p : listaSeleccion.getSelectedValuesList()) {
-                nuevoCombo.agregarProducto(p);
-            }
-
-            Sistema.getCombos().add(nuevoCombo);
+            nuevoCombo.agregarProducto(p);
+            } 
+            ItemMenuDAO.insertarCombo(nuevoCombo);
             cargarTabla();
 
-        } catch (NumberFormatException ex) {
+        } catch (NumberFormatException | SQLException ex) {
             JOptionPane.showMessageDialog(this, "El precio debe ser un numero valido.",
                     "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
     private void eliminarSeleccionado() {
-        int fila = tabla.getSelectedRow();
-        if (fila == -1) {
-            JOptionPane.showMessageDialog(this, "Seleccioná una fila primero.");
-            return;
-        }
+    int fila = tabla.getSelectedRow();
+    if (fila == -1) {
+        JOptionPane.showMessageDialog(this, "Seleccioná una fila primero.");
+        return;
+    }
 
-        int cantidadProductos = Sistema.getProductos().size();
-
-        if (fila < cantidadProductos) {
-            Sistema.getProductos().remove(fila);
-        } else {
-            Sistema.getCombos().remove(fila - cantidadProductos);
-        }
+    ItemMenu item = itemsCargados.get(fila);
+    try {
+        ItemMenuDAO.eliminar(item.getId());
         cargarTabla();
+    } catch (SQLException ex) {
+        JOptionPane.showMessageDialog(this, "No se pudo eliminar (puede estar en uso en una orden o combo): " + ex.getMessage(),
+                "Error", JOptionPane.ERROR_MESSAGE);
+    }
     }
 }

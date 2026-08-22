@@ -9,6 +9,9 @@ public class Usuario {
     private String contrasena;
     private String sucursal;
     private boolean sesionActiva;
+    public int getId() {
+    return id;
+}
 
     public Usuario(int id, String nombre, String usuario, String contrasena, String sucursal) {
         this.id = id;

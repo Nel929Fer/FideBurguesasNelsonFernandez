@@ -3,6 +3,7 @@ import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.sql.SQLException;
 
 /**
  * Pantalla de creación de orden (historias 3 y 4): elegir productos/combos,
@@ -99,18 +100,21 @@ public class VentanaNuevaOrden extends JFrame {
 
     // Junta Productos y Combos en una sola lista polimórfica (ItemMenu)
     private void cargarProductosDisponibles() {
-        itemsDisponibles.clear();
-        modeloDisponibles.setRowCount(0);
-
-        for (Producto p : Sistema.getProductos()) {
+    itemsDisponibles.clear();
+    modeloDisponibles.setRowCount(0);
+    try {
+        for (Producto p : ItemMenuDAO.listarProductos()) {
             itemsDisponibles.add(p);
             modeloDisponibles.addRow(new Object[]{p.getNombre(), p.getPrecio()});
         }
-        for (Combo c : Sistema.getCombos()) {
+        for (Combo c : ItemMenuDAO.listarCombos()) {
             itemsDisponibles.add(c);
             modeloDisponibles.addRow(new Object[]{c.getNombre(), c.getPrecio()});
         }
+    } catch (SQLException ex) {
+        JOptionPane.showMessageDialog(this, "Error cargando datos: " + ex.getMessage());
     }
+}
 
     private void agregarDetalle() {
         int fila = tablaDisponibles.getSelectedRow();
@@ -143,17 +147,22 @@ public class VentanaNuevaOrden extends JFrame {
     }
 
     private void confirmarOrden() {
-        try {
-            ordenActual.calcularTotal();
-            Sistema.getOrdenes().add(ordenActual);
+    try {
+        ordenActual.calcularTotal();
+        int ordenId = OrdenDAO.crearOrden(ordenActual);
 
-            Factura factura = new Factura(siguienteIdFactura++, ordenActual, Sistema.getUsuarioActual());
-            new VentanaFactura(factura).setVisible(true);
-            this.dispose();
+        Factura factura = new Factura(siguienteIdFactura++, ordenActual, Sistema.getUsuarioActual());
+        FacturaDAO.guardarFactura(factura, ordenId);
 
-        } catch (OrdenVaciaException ex) {
-            JOptionPane.showMessageDialog(this, "Agregá al menos un producto antes de confirmar.",
-                    "Error", JOptionPane.ERROR_MESSAGE);
-        }
+        new VentanaFactura(factura).setVisible(true);
+        this.dispose();
+
+    } catch (OrdenVaciaException ex) {
+        JOptionPane.showMessageDialog(this, "Agregá al menos un producto antes de confirmar.",
+                "Error", JOptionPane.ERROR_MESSAGE);
+    } catch (SQLException ex) {
+        JOptionPane.showMessageDialog(this, "Error guardando en la base de datos: " + ex.getMessage(),
+                "Error", JOptionPane.ERROR_MESSAGE);
     }
+}
 }

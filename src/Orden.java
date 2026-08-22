@@ -16,6 +16,13 @@ public class Orden {
     private List<DetalleOrden> listaDetalles;
     private double total;
     private Usuario cajero;
+    public java.time.LocalDate getFecha() {
+    return fecha;
+}
+
+public java.time.LocalTime getHora() {
+    return hora;
+}
 
     public Orden(int id, Usuario cajero) {
         this.id = id;
